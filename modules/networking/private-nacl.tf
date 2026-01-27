@@ -1,6 +1,6 @@
-resource "aws_network_acl" "private-nacl"{
-  vpc_id = aws_vpc.main.id
-
+resource "aws_network_acl" "private-nacl" {
+  vpc_id     = aws_vpc.main.id
+  subnet_ids = [aws_subnet.private-subnet.id] # ← KEY FIX: Associate here
   # ────────────────────────────────────────────────
   # INGRESS RULES (traffic ENTERING private subnet)
   # ────────────────────────────────────────────────
@@ -12,7 +12,7 @@ resource "aws_network_acl" "private-nacl"{
     protocol   = "tcp"
     from_port  = 22
     to_port    = 22
-    cidr_block = "10.0.0.0/24"  # 🔒 Replace with your actual IP!
+    cidr_block = "10.0.0.0/24" # 🔒 Replace with your actual IP!
   }
 
   # 2. Allow frontend → backend API requests (CRITICAL MISSING RULE!)
@@ -20,9 +20,9 @@ resource "aws_network_acl" "private-nacl"{
     rule_no    = 110
     action     = "allow"
     protocol   = "tcp"
-    from_port  = 3000   # Backend service port
+    from_port  = 3000 # Backend service port
     to_port    = 3000
-    cidr_block = "10.0.0.0/24"  # Public subnet CIDR (frontend)
+    cidr_block = "10.0.0.0/24" # Public subnet CIDR (frontend)
   }
 
   # 3. Allow RDS → backend responses (RDS replies to backend's ephemeral ports)
@@ -30,9 +30,9 @@ resource "aws_network_acl" "private-nacl"{
     rule_no    = 120
     action     = "allow"
     protocol   = "tcp"
-    from_port  = 1024   # Backend's ephemeral ports
+    from_port  = 1024 # Backend's ephemeral ports
     to_port    = 65535
-    cidr_block = "10.0.1.0/24"  # RDS subnet CIDR (adjust if RDS in separate subnet)
+    cidr_block = "10.0.1.0/24" # RDS subnet CIDR (adjust if RDS in separate subnet)
   }
 
   # 4. Allow ICMP for diagnostics (ping)
@@ -40,9 +40,9 @@ resource "aws_network_acl" "private-nacl"{
     rule_no    = 130
     action     = "allow"
     protocol   = "icmp"
-    from_port  = 8   # Echo Request
-    to_port    = -1
-    cidr_block = "10.0.0.0/16"  # From anywhere in VPC
+    from_port  = 8 # Echo Request
+    to_port    = 0
+    cidr_block = "10.0.0.0/16" # From anywhere in VPC
   }
 
   # ────────────────────────────────────────────────
@@ -56,7 +56,7 @@ resource "aws_network_acl" "private-nacl"{
     protocol   = "tcp"
     from_port  = 5432
     to_port    = 5432
-    cidr_block = "10.0.1.0/24"  # RDS subnet CIDR
+    cidr_block = "10.0.1.0/24" # RDS subnet CIDR
   }
 
   # 2. Allow backend → frontend responses (backend replies to frontend's ephemeral ports)
@@ -64,9 +64,9 @@ resource "aws_network_acl" "private-nacl"{
     rule_no    = 110
     action     = "allow"
     protocol   = "tcp"
-    from_port  = 1024   # Frontend's ephemeral ports
+    from_port  = 1024 # Frontend's ephemeral ports
     to_port    = 65535
-    cidr_block = "10.0.0.0/24"  # Public subnet CIDR
+    cidr_block = "10.0.0.0/24" # Public subnet CIDR
   }
 
   # 3. Allow backend to fetch updates via NAT Gateway (internet access)
@@ -103,8 +103,8 @@ resource "aws_network_acl" "private-nacl"{
     rule_no    = 150
     action     = "allow"
     protocol   = "icmp"
-    from_port  = 0   # Echo Reply
-    to_port    = -1
+    from_port  = 0 # Echo Reply
+    to_port    = 0
     cidr_block = "0.0.0.0/0"
   }
 
@@ -112,7 +112,7 @@ resource "aws_network_acl" "private-nacl"{
   # DEFAULT DENY (explicit catch-all)
   # ────────────────────────────────────────────────
   ingress {
-    rule_no    = 65535
+    rule_no    = 32766
     action     = "deny"
     protocol   = "-1"
     from_port  = 0
@@ -121,7 +121,7 @@ resource "aws_network_acl" "private-nacl"{
   }
 
   egress {
-    rule_no    = 65535
+    rule_no    = 32766
     action     = "deny"
     protocol   = "-1"
     from_port  = 0
@@ -135,7 +135,7 @@ resource "aws_network_acl" "private-nacl"{
 }
 
 # Explicit subnet association
-resource "aws_network_acl_subnet_association" "private" {
-  network_acl_id = aws_network_acl.private-nacl.id
-  subnet_id      = aws_subnet.private-subnet.id
-}
+#resource "aws_network_acl_subnet_association" "private" {
+# network_acl_id = aws_network_acl.private-nacl.id
+#subnet_id      = aws_subnet.private-subnet.id
+#}

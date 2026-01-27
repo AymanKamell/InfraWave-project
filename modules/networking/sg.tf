@@ -29,7 +29,7 @@ resource "aws_security_group" "frontend" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_ip]  # 🔒 CRITICAL: NOT 0.0.0.0/0!
+    cidr_blocks = [var.admin_ip] # 🔒 CRITICAL: NOT 0.0.0.0/0!
   }
 
   # Egress: Allow outbound to backend + internet (stateful = responses auto-allowed)
@@ -37,7 +37,7 @@ resource "aws_security_group" "frontend" {
     description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"  # All protocols
+    protocol    = "-1" # All protocols
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -60,16 +60,16 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_ip]  # 🔒 CRITICAL: NOT 0.0.0.0/0!
+    cidr_blocks = [var.admin_ip] # 🔒 CRITICAL: NOT 0.0.0.0/0!
   }
 
   # Egress: Allow SSH to backend instances ONLY
   egress {
-    description      = "SSH to backend instances"
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    security_groups  = ["10.0.1.0/24"]  # 🔒 Trust by SG, not CIDR
+    description     = "SSH to backend instances"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = ["10.0.1.0/24"] # 🔒 Trust by SG, not CIDR
   }
 
   # Optional: Allow outbound HTTPS for bastion updates
@@ -96,29 +96,29 @@ resource "aws_security_group" "backend" {
 
   # Ingress: API traffic ONLY from frontend instances (SG reference = least privilege)
   ingress {
-    description      = "App port from frontend instances only"
-    from_port        = var.app_port
-    to_port          = var.app_port
-    protocol         = "tcp"
-    security_groups  = [aws_security_group.frontend.id]  # 🔒 NOT CIDR!
+    description     = "App port from frontend instances only"
+    from_port       = var.app_port
+    to_port         = var.app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend.id] # 🔒 NOT CIDR!
   }
 
   # Ingress: SSH ONLY from bastion host (SG reference)
   ingress {
-    description      = "SSH from bastion host only"
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    security_groups  = [aws_security_group.bastion.id]  # 🔒 NOT CIDR!
+    description     = "SSH from bastion host only"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id] # 🔒 NOT CIDR!
   }
 
   # Egress: Database access to RDS
   egress {
-    description      = "PostgreSQL to RDS"
-    from_port        = 5432
-    to_port          = 5432
-    protocol         = "tcp"
-    security_groups  = [aws_security_group.rds.id]
+    description     = "PostgreSQL to RDS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = ["0.0.0.0/0"] # ✅ SAFE: RDS ingress still restricts to backend SG only
   }
 
   # Egress: Allow outbound for OS updates via NAT Gateway
@@ -145,11 +145,11 @@ resource "aws_security_group" "rds" {
 
   # Ingress: Database access ONLY from backend instances (SG reference = least privilege)
   ingress {
-    description      = "PostgreSQL from backend instances only"
-    from_port        = 5432
-    to_port          = 5432
-    protocol         = "tcp"
-    security_groups  = [aws_security_group.backend.id]  # 🔒 NOT CIDR!
+    description     = "PostgreSQL from backend instances only"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.backend.id] # 🔒 NOT CIDR!
   }
 
   # Egress: Minimal outbound (RDS rarely initiates connections)

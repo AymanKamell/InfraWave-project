@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+
+# Sensitive files
+terraform.tfvars
+
+# OS-specific
+.DS_Store
+*.swp
