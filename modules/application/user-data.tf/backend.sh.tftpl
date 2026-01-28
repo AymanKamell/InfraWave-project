@@ -1,0 +1,151 @@
+#!/bin/bash
+# BACKEND EC2 BOOTSTRAP SCRIPT - Simple Flask API
+
+set -e
+
+# ────────────────────────────────────────────────────────────────────────────
+# STEP 1: Install Python + dependencies
+# ────────────────────────────────────────────────────────────────────────────
+echo "[$(date)] Installing Python runtime..."
+apt-get update -y
+apt-get install -y python3 python3-pip python3-venv
+
+# ────────────────────────────────────────────────────────────────────────────
+# STEP 2: Create simple Flask API server
+# ────────────────────────────────────────────────────────────────────────────
+echo "[$(date)] Deploying API server..."
+
+# Create app directory
+mkdir -p /home/ubuntu/app
+cd /home/ubuntu/app
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Flask + PostgreSQL driver
+pip install flask psycopg2-binary
+
+# Create API server
+cat > app.py <<'APP_CODE'
+from flask import Flask, jsonify
+import psycopg2
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+
+# Get DB credentials from environment (injected by Terraform)
+DB_HOST = os.environ['RDS_HOST']
+DB_NAME = os.environ['RDS_DBNAME']
+DB_USER = os.environ['RDS_USERNAME']
+DB_PASS = os.environ['RDS_PASSWORD']
+APP_PORT = int(os.environ['APP_PORT'])
+
+@app.route('/api/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "service": "backend-api",
+        "database": DB_NAME
+    })
+
+@app.route('/api/data')
+def get_data():
+    """Query database and return result"""
+    try:
+        # Connect to PostgreSQL
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+        
+        # Execute query
+        cur = conn.cursor()
+        cur.execute("SELECT version(), current_database();")
+        result = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "postgres_version": result[0],
+            "database": result[1]
+        })
+    
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+if __name__ == '__main__':
+    logger.info(f"Starting API server on port {APP_PORT}")
+    app.run(host='0.0.0.0', port=APP_PORT, debug=False)
+APP_CODE
+
+# ────────────────────────────────────────────────────────────────────────────
+# STEP 3: Create systemd service (auto-start on boot)
+# ────────────────────────────────────────────────────────────────────────────
+cat > /etc/systemd/system/backend-api.service <<EOF
+[Unit]
+Description=InfraWave Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app
+Environment="RDS_HOST=${rds_host}"
+Environment="RDS_DBNAME=${rds_dbname}"
+Environment="RDS_USERNAME=${rds_username}"
+Environment="RDS_PASSWORD=${rds_password}"
+Environment="APP_PORT=${app_port}"
+ExecStart=/home/ubuntu/app/venv/bin/python /home/ubuntu/app/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start service
+systemctl daemon-reload
+systemctl enable backend-api
+systemctl start backend-api
+
+# ────────────────────────────────────────────────────────────────────────────
+# STEP 4: Create simple log shipping script (same as frontend)
+# ────────────────────────────────────────────────────────────────────────────
+cat > /usr/local/bin/ship-logs.sh <<'SCRIPT'
+#!/bin/bash
+BUCKET="${s3_log_bucket}"
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+# Upload Flask app logs (stdout goes to journalctl)
+journalctl -u backend-api --since "5 minutes ago" > /tmp/backend-api.log
+aws s3 cp /tmp/backend-api.log "s3://$BUCKET/$INSTANCE_ID/backend-api-$TIMESTAMP.log" 2>/dev/null || true
+rm -f /tmp/backend-api.log
+SCRIPT
+
+chmod +x /usr/local/bin/ship-logs.sh
+sed -i "s|\${s3_log_bucket}|${s3_log_bucket}|g" /usr/local/bin/ship-logs.sh
+
+# Setup cron job
+(crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/ship-logs.sh") | crontab -
+
+# Run once immediately
+/usr/local/bin/ship-logs.sh
+
+echo "[$(date)] Backend API server started on port ${app_port}"
+echo "[$(date)] Logs shipping to S3 bucket: ${s3_log_bucket}"

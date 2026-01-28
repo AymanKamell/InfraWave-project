@@ -1,0 +1,23 @@
+# modules/application/secrets.tf
+
+# Generate secure random password for RDS
+resource "random_password" "rds" {
+  length           = 16
+  special          = true
+  override_special = "_%@"
+}
+
+# Optional: Store password in AWS Secrets Manager (production-ready)
+resource "aws_secretsmanager_secret" "rds" {
+  name = "infrawave/rds-credentials"
+}
+
+resource "aws_secretsmanager_secret_version" "rds" {
+  secret_id     = aws_secretsmanager_secret.rds.id
+  secret_string = jsonencode({
+    username = aws_db_instance.app.username
+    password = random_password.rds.result
+    host     = aws_db_instance.app.address
+    dbname   = aws_db_instance.app.db_name
+  })
+}

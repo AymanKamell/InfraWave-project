@@ -1,0 +1,45 @@
+#!/bin/bash
+# MINIMAL BOOTSTRAP SCRIPT - Learning focused
+
+# 1. Install nginx + AWS CLI
+apt-get update -y
+apt-get install -y nginx awscli
+
+# 2. Start web server
+systemctl start nginx
+systemctl enable nginx
+
+# 3. Create simple HTML page
+cat > /var/www/html/index.html <<EOF
+<!DOCTYPE html>
+<html>
+<head><title>InfraWave</title></head>
+<body>
+  <h1>✅ Frontend Running!</h1>
+  <p>Logs shipped to S3 bucket: ${s3_log_bucket}</p>
+</body>
+</html>
+EOF
+
+# 4. Create SIMPLE log shipping script (runs every 5 minutes via cron)
+cat > /usr/local/bin/ship-logs.sh <<'SCRIPT'
+#!/bin/bash
+BUCKET="${s3_log_bucket}"
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+# Upload nginx access log to S3
+aws s3 cp /var/log/nginx/access.log "s3://$BUCKET/$INSTANCE_ID/access-$TIMESTAMP.log" 2>/dev/null || true
+SCRIPT
+
+# Make executable + inject bucket name
+chmod +x /usr/local/bin/ship-logs.sh
+sed -i "s|\${s3_log_bucket}|${s3_log_bucket}|g" /usr/local/bin/ship-logs.sh
+
+# 5. Setup CRON job (simplest scheduler)
+(crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/ship-logs.sh") | crontab -
+
+# 6. Run once immediately after boot
+/usr/local/bin/ship-logs.sh
+
+echo "✅ Bootstrap complete - logs shipping to S3 every 5 minutes"
