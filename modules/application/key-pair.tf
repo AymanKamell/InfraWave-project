@@ -14,4 +14,4 @@ resource "aws_key_pair" "app" {
 }
 
 # Reference in EC2 config:
-key_name = aws_key_pair.app.key_name
+#key_name = aws_key_pair.app.key_name
