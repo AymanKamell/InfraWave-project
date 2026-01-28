@@ -18,7 +18,7 @@ resource "aws_instance" "frontend-ec2" {
   instance_type          = "t3.micro"
   subnet_id              = var.public_subnet_id          # ✅ USE VARIABLE (not aws_subnet.*)
   vpc_security_group_ids = [var.frontend_sg_id]          # ✅ USE VARIABLE (not aws_security_group.*)
-  key_name               = aws_key_pair.app.key_name
+  key_name               = "ninja"
   associate_public_ip_address = true
 
   iam_instance_profile = aws_iam_instance_profile.ec2_logs.name

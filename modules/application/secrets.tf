@@ -1,15 +1,10 @@
-# modules/application/secrets.tf
-
-# Generate secure random password for RDS
 resource "random_password" "rds" {
-  length           = 16
-  special          = true
-  override_special = "_%@"
+  length  = 16
+  special = true
 }
 
-# Optional: Store password in AWS Secrets Manager (production-ready)
 resource "aws_secretsmanager_secret" "rds" {
-  name = "infrawave/rds-credentials"
+  name = "infrawave/rds-credentials-${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_secretsmanager_secret_version" "rds" {

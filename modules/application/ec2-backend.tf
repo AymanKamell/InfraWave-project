@@ -5,7 +5,7 @@ resource "aws_instance" "backend-ec2" {
   instance_type          = "t3.micro"
   subnet_id              = var.private_subnet_id          # ✅ USE VARIABLE (not aws_subnet.*)
   vpc_security_group_ids = [var.backend_sg_id]            # ✅ USE VARIABLE (not aws_security_group.*)
-  key_name               = aws_key_pair.app.key_name
+  key_name               = "ninja"
   
   associate_public_ip_address = false
 

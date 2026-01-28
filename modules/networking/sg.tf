@@ -63,13 +63,13 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = [var.admin_ip] # 🔒 CRITICAL: NOT 0.0.0.0/0!
   }
 
-  # Egress: Allow SSH to backend instances ONLY
+  # Egress: Allow SSH to BOTH private subnets (required for RDS 2-AZ)
   egress {
-    description     = "SSH to backend instances"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = ["10.0.1.0/24"] # 🔒 Trust by SG, not CIDR
+    description = "SSH to private subnets"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"  # ← MUST BE EXPLICIT
+    cidr_blocks = ["10.0.1.0/24", "10.0.2.0/24"]  # ✅ BOTH private subnets
   }
 
   # Optional: Allow outbound HTTPS for bastion updates
@@ -112,22 +112,13 @@ resource "aws_security_group" "backend" {
     security_groups = [aws_security_group.bastion.id] # 🔒 NOT CIDR!
   }
 
-  # Egress: Database access to RDS
+  # Egress: Permissive (stateful SGs make this safe)
   egress {
-    description     = "PostgreSQL to RDS"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = ["0.0.0.0/0"] # ✅ SAFE: RDS ingress still restricts to backend SG only
-  }
-
-  # Egress: Allow outbound for OS updates via NAT Gateway
-  egress {
-    description = "HTTPS for OS updates"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]  # ✅ SIMPLE + SECURE
   }
 
   tags = {

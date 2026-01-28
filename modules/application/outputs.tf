@@ -24,3 +24,7 @@ output "backend_api_url" {
   description = "Backend API health check URL"
   value       = "http://${aws_instance.backend-ec2.private_ip}:${var.app_port}/api/health"
 }
+#output "tls_private_key" {
+  #value     = tls_private_key.app.private_key_pem
+  #sensitive = true  # Hides value in terraform output unless -raw flag used
+#}

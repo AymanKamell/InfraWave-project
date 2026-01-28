@@ -22,4 +22,5 @@ module "application" {
   backend_sg_id     = module.networking.backend_sg_id
   rds_sg_id         = module.networking.rds_sg_id
   bastion_sg_id     = module.networking.bastion_sg_id # Optional if bastion exists
+  private_subnet_2_id = module.networking.private_subnet_2_id
 }

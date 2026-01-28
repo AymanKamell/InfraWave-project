@@ -26,3 +26,6 @@ output "rds_sg_id" {
 output "bastion_sg_id" {
   value = aws_security_group.bastion.id
 }
+output "private_subnet_2_id" {
+  value = aws_subnet.private-subnet-2.id
+}
